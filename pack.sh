@@ -12,7 +12,7 @@ CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
 info()    { echo -e "${CYAN}[INFO]${RESET}  $*"; }
 success() { echo -e "${GREEN}[OK]${RESET}    $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${RESET}  $*"; }
-error()   { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
+error()   { echo -e "${RED}[ERROR]${RESET} $*" | tee /dev/stderr; exit 1; }
 
 # ── Config ───────────────────────────────────────────────────────────────────
 VERSION="${1:-}"
@@ -37,7 +37,7 @@ usage() {
 # ── Prereqs ───────────────────────────────────────────────────────────────────
 check_deps() {
     local missing=()
-    for cmd in curl sha256sum split date python3; do
+    for cmd in curl sha256sum split date; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
     [[ ${#missing[@]} -gt 0 ]] && error "Missing: ${missing[*]}"
