@@ -5,10 +5,11 @@
 # Author: kelexine <https://github.com/kelexine>
 # =============================================================================
 
-# Prevent BASH_ENV/ENV from being re-sourced in child bash processes.
-# Subshells inherit BASH_ENV and re-run the system shellrc which may
-# reference unbound variables that trip our set -u.
-unset BASH_ENV ENV
+# Setting BASH_ENV/ENV to empty prevents bash from sourcing them in ANY
+# subshell (including command substitutions). Unsetting alone is insufficient
+# because some environments re-export them. Empty = bash skips source entirely.
+export BASH_ENV=''
+export ENV=''
 
 set -euo pipefail
 
@@ -25,7 +26,7 @@ VERSION="${1:-}"
 TARGET="${2:-x86_64-unknown-linux-gnu}"
 CHUNK_SIZE="${3:-90M}"   # 90MB chunks — well under GitHub's 100MB limit
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORK_DIR="$(mktemp -d /tmp/rust-pack.XXXXXX)"
+WORK_DIR="$(mkdir -p "${TMPDIR:-$HOME/.tmp}" && mktemp -d "${TMPDIR:-$HOME/.tmp}/rust-pack.XXXXXX)"
 RUST_DIST_BASE="https://static.rust-lang.org/dist"
 
 trap 'rm -rf "$WORK_DIR"' EXIT

@@ -3,8 +3,11 @@
 # verify.sh — Verify chunk integrity without installing
 # Author: kelexine <https://github.com/kelexine>
 # =============================================================================
-# Prevent child bash processes from re-sourcing system shellrc (BASH_ENV).
-unset BASH_ENV ENV
+# Setting BASH_ENV to empty prevents bash from sourcing it in ANY subshell
+# (including command substitutions). Unsetting alone is insufficient because
+# some environments re-export it. Empty string = bash skips the source entirely.
+export BASH_ENV=''
+export ENV=''
 
 set -euo pipefail
 
@@ -15,7 +18,7 @@ error()   { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="${1:-}"
-WORK_DIR="$(mktemp -d /tmp/rust-verify.XXXXXX)"
+WORK_DIR="$(mkdir -p "${TMPDIR:-$HOME/.tmp}" && mktemp -d "${TMPDIR:-$HOME/.tmp}/rust-verify.XXXXXX)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 if [[ -z "$VERSION" ]]; then

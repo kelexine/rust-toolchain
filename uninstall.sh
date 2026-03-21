@@ -3,8 +3,11 @@
 # uninstall.sh — Remove installed Rust toolchain
 # Author: kelexine <https://github.com/kelexine>
 # =============================================================================
-# Prevent child bash processes from re-sourcing system shellrc (BASH_ENV).
-unset BASH_ENV ENV
+# Setting BASH_ENV to empty prevents bash from sourcing it in ANY subshell
+# (including command substitutions). Unsetting alone is insufficient because
+# some environments re-export it. Empty string = bash skips the source entirely.
+export BASH_ENV=''
+export ENV=''
 
 set -euo pipefail
 

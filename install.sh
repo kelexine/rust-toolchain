@@ -4,8 +4,11 @@
 # Repository: https://github.com/kelexine/rust-toolchain
 # Author: kelexine <https://github.com/kelexine>
 # =============================================================================
-# Prevent child bash processes from re-sourcing system shellrc (BASH_ENV).
-unset BASH_ENV ENV
+# Setting BASH_ENV to empty prevents bash from sourcing it in ANY subshell
+# (including command substitutions). Unsetting alone is insufficient because
+# some environments re-export it. Empty string = bash skips the source entirely.
+export BASH_ENV=''
+export ENV=''
 
 set -euo pipefail
 
@@ -23,7 +26,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CARGO_HOME="${CARGO_HOME:-$HOME/.cargo-toolchain}"
 RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup-toolchain}"
 INSTALL_DIR="${CARGO_HOME}"
-WORK_DIR="$(mktemp -d /tmp/rust-toolchain-install.XXXXXX)"
+WORK_DIR="$(mkdir -p "${TMPDIR:-$HOME/.tmp}" && mktemp -d "${TMPDIR:-$HOME/.tmp}/rust-toolchain-install.XXXXXX)"
 TARGET_TRIPLE="x86_64-unknown-linux-gnu"
 
 # ── Cleanup on exit ──────────────────────────────────────────────────────────
