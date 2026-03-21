@@ -1,0 +1,7 @@
+# Ignore temp files
+/tmp/
+*.tmp
+
+# Don't ignore chunk files — they're the payload
+!*.part*
+!*.sha256

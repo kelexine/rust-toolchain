@@ -1,0 +1,194 @@
+name: Sync Latest Rust Stable
+
+# Runs on the 1st and 15th of every month at 02:00 UTC
+# Also manually triggerable with optional version override
+on:
+  schedule:
+    - cron: "0 2 1 * *"   # 1st of month
+    - cron: "0 2 15 * *"  # 15th of month
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Rust version to pack (leave empty to auto-detect latest stable)"
+        required: false
+        default: ""
+      force:
+        description: "Force repack even if version already exists"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync Rust Toolchain
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Resolve latest stable version ────────────────────────────────────────
+      - name: Resolve Rust stable version
+        id: resolve
+        run: |
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "Using manually specified version: $VERSION"
+          else
+            echo "Fetching latest stable from rust-lang.org..."
+            VERSION=$(curl -fsSL "https://static.rust-lang.org/dist/channel-rust-stable.toml" \
+              | grep -m1 '^version = ' \
+              | sed 's/version = "\(.*\)"/\1/' \
+              | tr -d ' ')
+            echo "Resolved latest stable: $VERSION"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Check if this version is already packed
+          MANIFEST="toolchains/$VERSION/manifest.json"
+          if [[ -f "$MANIFEST" && "${{ github.event.inputs.force }}" != "true" ]]; then
+            echo "already_exists=true" >> "$GITHUB_OUTPUT"
+            echo "Version $VERSION already packed. Skipping."
+          else
+            echo "already_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Skip if already exists ───────────────────────────────────────────────
+      - name: Skip if already packed
+        if: steps.resolve.outputs.already_exists == 'true'
+        run: |
+          echo "✅ Rust ${{ steps.resolve.outputs.version }} already exists in this repo. Nothing to do."
+
+      # ── Download toolchain ───────────────────────────────────────────────────
+      - name: Download Rust toolchain
+        if: steps.resolve.outputs.already_exists == 'false'
+        id: download
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          TARGET="x86_64-unknown-linux-gnu"
+          FILENAME="rust-${VERSION}-${TARGET}.tar.xz"
+          URL="https://static.rust-lang.org/dist/${FILENAME}"
+          SHA_URL="${URL}.sha256"
+
+          echo "Downloading $FILENAME..."
+          curl -fL --progress-bar "$URL" -o "/tmp/$FILENAME"
+
+          echo "Downloading checksum..."
+          curl -fsSL "$SHA_URL" -o "/tmp/${FILENAME}.sha256"
+
+          echo "Verifying upstream checksum..."
+          EXPECTED=$(awk '{print $1}' "/tmp/${FILENAME}.sha256")
+          ACTUAL=$(sha256sum "/tmp/$FILENAME" | awk '{print $1}')
+
+          if [[ "$EXPECTED" != "$ACTUAL" ]]; then
+            echo "❌ Checksum mismatch! Expected: $EXPECTED  Got: $ACTUAL"
+            exit 1
+          fi
+
+          echo "✅ Checksum verified: $ACTUAL"
+          echo "sha256=$ACTUAL" >> "$GITHUB_OUTPUT"
+          echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+      # ── Split into chunks ────────────────────────────────────────────────────
+      - name: Split into 90MB chunks
+        if: steps.resolve.outputs.already_exists == 'false'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          FILENAME="${{ steps.download.outputs.filename }}"
+          OUT_DIR="toolchains/$VERSION"
+
+          mkdir -p "$OUT_DIR"
+
+          echo "Splitting /tmp/$FILENAME into 90M chunks..."
+          split \
+            --bytes=90M \
+            --numeric-suffixes \
+            --suffix-length=3 \
+            "/tmp/$FILENAME" \
+            "$OUT_DIR/rust-${VERSION}.tar.xz.part"
+
+          CHUNK_COUNT=$(find "$OUT_DIR" -name "rust-${VERSION}.tar.xz.part*" | wc -l)
+          echo "Created $CHUNK_COUNT chunks"
+          ls -lh "$OUT_DIR"/
+
+      # ── Write manifest ───────────────────────────────────────────────────────
+      - name: Write manifest.json
+        if: steps.resolve.outputs.already_exists == 'false'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          TARGET="${{ steps.download.outputs.target }}"
+          SHA256="${{ steps.download.outputs.sha256 }}"
+          OUT_DIR="toolchains/$VERSION"
+          CHUNK_COUNT=$(find "$OUT_DIR" -name "rust-${VERSION}.tar.xz.part*" | wc -l)
+          DATE=$(date -u +%Y-%m-%d)
+
+          cat > "$OUT_DIR/manifest.json" <<EOF
+          {
+            "version": "$VERSION",
+            "target": "$TARGET",
+            "date": "$DATE",
+            "sha256": "$SHA256",
+            "chunks": $CHUNK_COUNT,
+            "chunk_size": "90M",
+            "source": "https://static.rust-lang.org/dist/rust-${VERSION}-${TARGET}.tar.xz",
+            "packed_by": "kelexine/rust-toolchain GitHub Actions"
+          }
+          EOF
+
+          # Standalone sha256 file
+          echo "$SHA256  rust-${VERSION}.tar.xz" > "$OUT_DIR/rust-${VERSION}.tar.xz.sha256"
+
+          echo "Manifest written:"
+          cat "$OUT_DIR/manifest.json"
+
+      # ── Update stable symlink ─────────────────────────────────────────────────
+      - name: Update stable symlink
+        if: steps.resolve.outputs.already_exists == 'false'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+
+          # Remove old symlink (if exists) and create new one
+          rm -f stable
+          ln -s "toolchains/$VERSION" stable
+
+          echo "stable -> toolchains/$VERSION"
+
+      # ── Commit and push ───────────────────────────────────────────────────────
+      - name: Commit and push
+        if: steps.resolve.outputs.already_exists == 'false'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "toolchains/$VERSION/" stable
+          git commit -m "chore: add Rust $VERSION toolchain [$(date -u +%Y-%m-%d)]"
+          git push
+
+          echo "✅ Rust $VERSION committed and pushed."
+
+      # ── Summary ───────────────────────────────────────────────────────────────
+      - name: Job summary
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          if [[ "${{ steps.resolve.outputs.already_exists }}" == "true" ]]; then
+            echo "## ✅ No update needed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Rust **$VERSION** was already present in the repository." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## 🦀 Rust $VERSION packed and pushed" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Version:** $VERSION" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Target:** x86_64-unknown-linux-gnu" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **SHA-256:** ${{ steps.download.outputs.sha256 }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Triggered by:** ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
