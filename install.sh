@@ -26,7 +26,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CARGO_HOME="${CARGO_HOME:-$HOME/.cargo-toolchain}"
 RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup-toolchain}"
 INSTALL_DIR="${CARGO_HOME}"
-WORK_DIR="$(mkdir -p "${TMPDIR:-$HOME/.tmp}" && mktemp -d "${TMPDIR:-$HOME/.tmp}/rust-toolchain-install.XXXXXX)"
+_TMPBASE="${TMPDIR:-$HOME/.tmp}"
+mkdir -p "$_TMPBASE"
+WORK_DIR="$(mktemp -d "$_TMPBASE/rust-toolchain-install.XXXXXX")"
 TARGET_TRIPLE="x86_64-unknown-linux-gnu"
 
 # ── Cleanup on exit ──────────────────────────────────────────────────────────

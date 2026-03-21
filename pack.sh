@@ -26,7 +26,9 @@ VERSION="${1:-}"
 TARGET="${2:-x86_64-unknown-linux-gnu}"
 CHUNK_SIZE="${3:-90M}"   # 90MB chunks — well under GitHub's 100MB limit
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORK_DIR="$(mkdir -p "${TMPDIR:-$HOME/.tmp}" && mktemp -d "${TMPDIR:-$HOME/.tmp}/rust-pack.XXXXXX)"
+_TMPBASE="${TMPDIR:-$HOME/.tmp}"
+mkdir -p "$_TMPBASE"
+WORK_DIR="$(mktemp -d "$_TMPBASE/rust-pack.XXXXXX")"
 RUST_DIST_BASE="https://static.rust-lang.org/dist"
 
 trap 'rm -rf "$WORK_DIR"' EXIT

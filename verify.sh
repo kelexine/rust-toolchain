@@ -18,7 +18,9 @@ error()   { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="${1:-}"
-WORK_DIR="$(mkdir -p "${TMPDIR:-$HOME/.tmp}" && mktemp -d "${TMPDIR:-$HOME/.tmp}/rust-verify.XXXXXX)"
+_TMPBASE="${TMPDIR:-$HOME/.tmp}"
+mkdir -p "$_TMPBASE"
+WORK_DIR="$(mktemp -d "$_TMPBASE/rust-verify.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 if [[ -z "$VERSION" ]]; then
