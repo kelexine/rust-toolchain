@@ -3,6 +3,9 @@
 # uninstall.sh — Remove installed Rust toolchain
 # Author: kelexine <https://github.com/kelexine>
 # =============================================================================
+# Prevent child bash processes from re-sourcing system shellrc (BASH_ENV).
+unset BASH_ENV ENV
+
 set -euo pipefail
 
 YELLOW='\033[1;33m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; RESET='\033[0m'; BOLD='\033[1m'

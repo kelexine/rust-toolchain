@@ -4,6 +4,9 @@
 # Repository: https://github.com/kelexine/rust-toolchain
 # Author: kelexine <https://github.com/kelexine>
 # =============================================================================
+# Prevent child bash processes from re-sourcing system shellrc (BASH_ENV).
+unset BASH_ENV ENV
+
 set -euo pipefail
 
 # ── Colours ──────────────────────────────────────────────────────────────────

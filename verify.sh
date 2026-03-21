@@ -3,6 +3,9 @@
 # verify.sh — Verify chunk integrity without installing
 # Author: kelexine <https://github.com/kelexine>
 # =============================================================================
+# Prevent child bash processes from re-sourcing system shellrc (BASH_ENV).
+unset BASH_ENV ENV
+
 set -euo pipefail
 
 CYAN='\033[0;36m'; GREEN='\033[0;32m'; RED='\033[0;31m'; RESET='\033[0m'

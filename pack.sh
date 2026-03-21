@@ -4,6 +4,12 @@
 # Run this locally (not in the sandbox) where rust-lang.org is accessible.
 # Author: kelexine <https://github.com/kelexine>
 # =============================================================================
+
+# Prevent BASH_ENV/ENV from being re-sourced in child bash processes.
+# Subshells inherit BASH_ENV and re-run the system shellrc which may
+# reference unbound variables that trip our set -u.
+unset BASH_ENV ENV
+
 set -euo pipefail
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
