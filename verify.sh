@@ -15,11 +15,14 @@ VERSION="${1:-}"
 WORK_DIR="$(mktemp -d /tmp/rust-verify.XXXXXX)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-[[ -z "$VERSION" ]] && {
+if [[ -z "$VERSION" ]]; then
     stable_link="$REPO_ROOT/stable"
-    [[ -L "$stable_link" ]] && VERSION="$(basename "$(readlink -f "$stable_link")")" \
-        || { echo "Usage: $0 [version]"; exit 1; }
-}
+    if [[ -L "$stable_link" ]]; then
+        VERSION="$(basename "$(readlink -f "$stable_link")")"
+    else
+        echo "Usage: $0 [version]"; exit 1
+    fi
+fi
 
 manifest="$REPO_ROOT/toolchains/$VERSION/manifest.json"
 [[ -f "$manifest" ]] || error "No manifest for $VERSION"
@@ -36,7 +39,7 @@ while [[ $i -lt $MANIFEST_CHUNKS ]]; do
         "$REPO_ROOT" "$VERSION" "$VERSION" "$i")
     [[ -f "$chunk" ]] || error "Missing chunk: $chunk"
     cat "$chunk" >> "$archive"
-    (( i++ ))
+    i=$(( i + 1 ))
 done
 
 actual="$(sha256sum "$archive" | awk '{print $1}')"

@@ -19,18 +19,16 @@ warn "This will remove $CARGO_HOME and $RUSTUP_HOME"
 read -rp "Continue? [y/N] " reply
 [[ "${reply,,}" == "y" ]] || { info "Aborted."; exit 0; }
 
-[[ -d "$CARGO_HOME" ]]  && { rm -rf "$CARGO_HOME";  success "Removed $CARGO_HOME"; }
-[[ -d "$RUSTUP_HOME" ]] && { rm -rf "$RUSTUP_HOME"; success "Removed $RUSTUP_HOME"; }
+if [[ -d "$CARGO_HOME" ]];  then rm -rf "$CARGO_HOME";  success "Removed $CARGO_HOME"; fi
+if [[ -d "$RUSTUP_HOME" ]]; then rm -rf "$RUSTUP_HOME"; success "Removed $RUSTUP_HOME"; fi
 
 # Remove env hooks from shell configs
 for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
-    [[ -f "$rc" ]] && grep -q "$MARKER" "$rc" && {
-        # Remove the line containing the marker
+    if [[ -f "$rc" ]] && grep -q "$MARKER" "$rc"; then
         sed -i "/$MARKER/d" "$rc"
-        # Also remove the source line above it (the blank line + source line)
         sed -i '/^source.*cargo-toolchain\/env/d' "$rc"
         info "Cleaned $rc"
-    }
+    fi
 done
 
 success "Uninstall complete."

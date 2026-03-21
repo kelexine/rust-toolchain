@@ -82,7 +82,7 @@ reassemble() {
         chunk=$(printf "%s/rust-%s.tar.xz.part%03d" "$toolchain_dir" "$VERSION" "$i")
         [[ -f "$chunk" ]] || error "Missing chunk: $chunk"
         cat "$chunk" >> "$out"
-        (( i++ ))
+        i=$(( i + 1 ))
     done
 
     success "Reassembled: $archive_name ($(du -sh "$out" | cut -f1))"

@@ -32,7 +32,7 @@ usage() {
     exit 1
 }
 
-[[ -z "$VERSION" ]] && usage
+if [[ -z "$VERSION" ]]; then usage; fi
 
 # ── Prereqs ───────────────────────────────────────────────────────────────────
 check_deps() {
@@ -40,7 +40,9 @@ check_deps() {
     for cmd in curl sha256sum split date; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
-    [[ ${#missing[@]} -gt 0 ]] && error "Missing: ${missing[*]}"
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        error "Missing required tools: ${missing[*]}"
+    fi
 }
 
 # ── Download ──────────────────────────────────────────────────────────────────
