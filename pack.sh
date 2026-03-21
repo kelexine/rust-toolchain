@@ -59,12 +59,15 @@ download_toolchain() {
     local url="$RUST_DIST_BASE/$filename"
     local sha_url="$RUST_DIST_BASE/$sha_filename"
 
+    # Strip BASH_ENV/ENV so child processes do not re-source system shellrc
+    local _curl="env -u BASH_ENV -u ENV curl"
+
     info "Downloading $filename..."
-    curl -fL --progress-bar "$url" -o "$WORK_DIR/$filename" || \
+    $_curl -fL --progress-bar "$url" -o "$WORK_DIR/$filename" || \
         error "Download failed: $url"
 
     info "Downloading checksum..."
-    curl -fsSL "$sha_url" -o "$WORK_DIR/$sha_filename" || \
+    $_curl -fsSL "$sha_url" -o "$WORK_DIR/$sha_filename" || \
         error "Checksum download failed: $sha_url"
 
     # Verify against upstream sha256
