@@ -1,0 +1,10 @@
+{
+  "version": "1.94.1",
+  "target": "x86_64-unknown-linux-gnu",
+  "date": "2026-04-01",
+  "sha256": "294b3d81fa72e62581276290c60c81eb8b58498d333d422ca1dfc432877d0c40",
+  "chunks": 3,
+  "chunk_size": "90M",
+  "source": "https://static.rust-lang.org/dist/rust-1.94.1-x86_64-unknown-linux-gnu.tar.xz",
+  "packed_by": "kelexine/rust-toolchain GitHub Actions"
+}
