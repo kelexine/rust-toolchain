@@ -120,6 +120,7 @@ jobs:
       # ── Split into chunks ─────────────────────────────────────────────────────
       - name: Split into 90MB chunks
         if: steps.resolve.outputs.already_exists == 'false'
+        id: split
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
           FILENAME="${{ steps.download.outputs.filename }}"
