@@ -40,22 +40,33 @@ jobs:
         id: resolve
         run: |
           if [[ -n "${{ github.event.inputs.version }}" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
-            echo "Using manually specified version: $VERSION"
+            # Sanitize: extract only X.Y.Z in case the user pastes a full
+            # "rustc --version" string like "1.94.1 (e408947bf 2026-03-25)"
+            RAW_INPUT="${{ github.event.inputs.version }}"
+            VERSION=$(echo "$RAW_INPUT" | grep -oP '\d+\.\d+\.\d+' | head -1)
+            if [[ -z "$VERSION" ]]; then
+              echo "ERROR: could not parse a valid semver from input: $RAW_INPUT"
+              exit 1
+            fi
+            echo "Using manually specified version: $VERSION (raw input: $RAW_INPUT)"
           else
             echo "Fetching latest stable from rust-lang.org..."
             # Parse channel-rust-stable.toml anchored to the [pkg.rust] section
             # to avoid false matches from other component version fields.
+            # The version field value looks like: "1.94.1 (e408947bf 2026-03-25)"
+            # — we extract only the leading X.Y.Z semver, discarding the commit
+            # hash suffix, which is not part of the dist filename.
             TOML=$(curl -fsSL "https://static.rust-lang.org/dist/channel-rust-stable.toml")
-            VERSION=$(echo "$TOML" \
+            RAW_VERSION=$(echo "$TOML" \
               | awk '/^\[pkg\.rust\]/{found=1} found && /^version =/{print; exit}' \
-              | sed 's/version = "\(.*\)"/\1/' \
-              | tr -d ' ')
+              | sed 's/version = "\(.*\)"/\1/')
+            VERSION=$(echo "$RAW_VERSION" | grep -oP '^\d+\.\d+\.\d+')
             if [[ -z "$VERSION" ]]; then
-              echo "ERROR: could not parse version from channel-rust-stable.toml"
+              echo "ERROR: could not parse semver from channel-rust-stable.toml"
+              echo "  Raw value was: $RAW_VERSION"
               exit 1
             fi
-            echo "Resolved latest stable: $VERSION"
+            echo "Resolved latest stable: $VERSION (raw: $RAW_VERSION)"
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
