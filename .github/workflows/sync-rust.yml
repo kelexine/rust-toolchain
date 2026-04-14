@@ -28,14 +28,14 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
+      # ── Checkout ─────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Resolve latest stable version ────────────────────────────────────────
+      # ── Resolve latest stable version ─────────────────────────────────────────
       - name: Resolve Rust stable version
         id: resolve
         run: |
@@ -44,10 +44,17 @@ jobs:
             echo "Using manually specified version: $VERSION"
           else
             echo "Fetching latest stable from rust-lang.org..."
-            VERSION=$(curl -fsSL "https://static.rust-lang.org/dist/channel-rust-stable.toml" \
-              | grep -m1 '^version = ' \
+            # Parse channel-rust-stable.toml anchored to the [pkg.rust] section
+            # to avoid false matches from other component version fields.
+            TOML=$(curl -fsSL "https://static.rust-lang.org/dist/channel-rust-stable.toml")
+            VERSION=$(echo "$TOML" \
+              | awk '/^\[pkg\.rust\]/{found=1} found && /^version =/{print; exit}' \
               | sed 's/version = "\(.*\)"/\1/' \
               | tr -d ' ')
+            if [[ -z "$VERSION" ]]; then
+              echo "ERROR: could not parse version from channel-rust-stable.toml"
+              exit 1
+            fi
             echo "Resolved latest stable: $VERSION"
           fi
 
@@ -62,13 +69,13 @@ jobs:
             echo "already_exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # ── Skip if already exists ───────────────────────────────────────────────
+      # ── Skip if already exists ────────────────────────────────────────────────
       - name: Skip if already packed
         if: steps.resolve.outputs.already_exists == 'true'
         run: |
           echo "✅ Rust ${{ steps.resolve.outputs.version }} already exists in this repo. Nothing to do."
 
-      # ── Download toolchain ───────────────────────────────────────────────────
+      # ── Download toolchain ────────────────────────────────────────────────────
       - name: Download Rust toolchain
         if: steps.resolve.outputs.already_exists == 'false'
         id: download
@@ -95,11 +102,11 @@ jobs:
           fi
 
           echo "✅ Checksum verified: $ACTUAL"
-          echo "sha256=$ACTUAL" >> "$GITHUB_OUTPUT"
+          echo "sha256=$ACTUAL"   >> "$GITHUB_OUTPUT"
           echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
-          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET"   >> "$GITHUB_OUTPUT"
 
-      # ── Split into chunks ────────────────────────────────────────────────────
+      # ── Split into chunks ─────────────────────────────────────────────────────
       - name: Split into 90MB chunks
         if: steps.resolve.outputs.already_exists == 'false'
         run: |
@@ -119,20 +126,23 @@ jobs:
 
           CHUNK_COUNT=$(find "$OUT_DIR" -name "rust-${VERSION}.tar.xz.part*" | wc -l)
           echo "Created $CHUNK_COUNT chunks"
+          echo "chunk_count=$CHUNK_COUNT" >> "$GITHUB_OUTPUT"
           ls -lh "$OUT_DIR"/
 
-      # ── Write manifest ───────────────────────────────────────────────────────
+      # ── Write manifest ────────────────────────────────────────────────────────
       - name: Write manifest.json
         if: steps.resolve.outputs.already_exists == 'false'
+        id: manifest
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
           TARGET="${{ steps.download.outputs.target }}"
           SHA256="${{ steps.download.outputs.sha256 }}"
           OUT_DIR="toolchains/$VERSION"
-          CHUNK_COUNT=$(find "$OUT_DIR" -name "rust-${VERSION}.tar.xz.part*" | wc -l)
+          CHUNK_COUNT="${{ steps.split.outputs.chunk_count }}"
           DATE=$(date -u +%Y-%m-%d)
 
-          cat > "$OUT_DIR/manifest.json" <<EOF
+          # Write without heredoc indentation so JSON is not prefixed with spaces
+          cat > "$OUT_DIR/manifest.json" <<-MANIFEST
           {
             "version": "$VERSION",
             "target": "$TARGET",
@@ -143,27 +153,110 @@ jobs:
             "source": "https://static.rust-lang.org/dist/rust-${VERSION}-${TARGET}.tar.xz",
             "packed_by": "kelexine/rust-toolchain GitHub Actions"
           }
-          EOF
+          MANIFEST
 
-          # Standalone sha256 file
+          # Strip the leading whitespace artifact from the tab-indented heredoc
+          python3 -c "
+          import json, sys
+          with open('$OUT_DIR/manifest.json') as f:
+              data = json.load(f)
+          with open('$OUT_DIR/manifest.json', 'w') as f:
+              json.dump(data, f, indent=2)
+              f.write('\n')
+          "
+
+          # Standalone sha256 file (for verify.sh)
           echo "$SHA256  rust-${VERSION}.tar.xz" > "$OUT_DIR/rust-${VERSION}.tar.xz.sha256"
 
           echo "Manifest written:"
           cat "$OUT_DIR/manifest.json"
+          echo "date=$DATE"       >> "$GITHUB_OUTPUT"
 
-      # ── Update stable symlink ─────────────────────────────────────────────────
+      # ── Update stable symlink ──────────────────────────────────────────────────
       - name: Update stable symlink
         if: steps.resolve.outputs.already_exists == 'false'
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
-
-          # Remove old symlink (if exists) and create new one
           rm -f stable
           ln -s "toolchains/$VERSION" stable
-
           echo "stable -> toolchains/$VERSION"
 
-      # ── Commit and push ───────────────────────────────────────────────────────
+      # ── Update README metadata ─────────────────────────────────────────────────
+      - name: Update README metadata
+        if: steps.resolve.outputs.already_exists == 'false'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          TARGET="${{ steps.download.outputs.target }}"
+          SHA256="${{ steps.download.outputs.sha256 }}"
+          DATE="${{ steps.manifest.outputs.date }}"
+          CHUNK_COUNT="${{ steps.split.outputs.chunk_count }}"
+          CHUNK_SIZE="90M"
+          CHUNK_LABEL="${CHUNK_COUNT} x ${CHUNK_SIZE}"
+
+          # Build replacement metadata block
+          NEW_META="<!-- stable-metadata-start -->
+          - **Platform:** \`${TARGET}\`
+          - **Current stable:** \`${VERSION}\`
+          - **Release date:** \`${DATE}\`
+          - **SHA-256:** \`${SHA256}\`
+          - **Chunks:** \`${CHUNK_LABEL}\`
+          <!-- stable-metadata-end -->"
+
+          # Build replacement repo tree block
+          NEW_TREE="<!-- repo-tree-start -->
+          \`\`\`
+          rust-toolchain/
+          ├── README.md
+          ├── install.sh              <- main entry point (run this)
+          ├── uninstall.sh            <- clean removal
+          ├── verify.sh               <- sha256 integrity check
+          ├── pack.sh                 <- [local] package a toolchain for upload
+          ├── toolchains/
+          │   └── ${VERSION}/
+          │       ├── manifest.json   <- metadata: version, date, sha256, chunk count
+          │       ├── rust-${VERSION}.tar.xz.sha256
+          │       ├── rust-${VERSION}.tar.xz.part000
+          │       ├── rust-${VERSION}.tar.xz.part001
+          │       └── ...             <- 90MB chunks (GitHub <100MB limit)
+          └── stable -> toolchains/${VERSION}   <- symlink to current stable
+          \`\`\`
+          <!-- repo-tree-end -->"
+
+          # Use python3 (always available on ubuntu-latest) for robust multiline
+          # block replacement — avoids sed/awk quoting issues with backticks and
+          # special chars in the tree block.
+          python3 - <<-PYEOF
+          import re
+
+          with open('README.md', 'r') as f:
+              content = f.read()
+
+          meta = """${NEW_META}"""
+          tree = """${NEW_TREE}"""
+
+          # Replace metadata block
+          content = re.sub(
+              r'<!-- stable-metadata-start -->.*?<!-- stable-metadata-end -->',
+              meta,
+              content,
+              flags=re.DOTALL
+          )
+
+          # Replace tree block
+          content = re.sub(
+              r'<!-- repo-tree-start -->.*?<!-- repo-tree-end -->',
+              tree,
+              content,
+              flags=re.DOTALL
+          )
+
+          with open('README.md', 'w') as f:
+              f.write(content)
+
+          print("README.md updated successfully")
+          PYEOF
+
+      # ── Commit and push ────────────────────────────────────────────────────────
       - name: Commit and push
         if: steps.resolve.outputs.already_exists == 'false'
         run: |
@@ -172,7 +265,8 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add "toolchains/$VERSION/" stable
+          # Stage toolchain chunks, stable symlink, and updated README
+          git add "toolchains/$VERSION/" stable README.md
           git commit -m "chore: add Rust $VERSION toolchain [$(date -u +%Y-%m-%d)]"
           git push
 
@@ -190,5 +284,6 @@ jobs:
             echo "- **Version:** $VERSION" >> "$GITHUB_STEP_SUMMARY"
             echo "- **Target:** x86_64-unknown-linux-gnu" >> "$GITHUB_STEP_SUMMARY"
             echo "- **SHA-256:** ${{ steps.download.outputs.sha256 }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Chunks:** ${{ steps.split.outputs.chunk_count }} × 90M" >> "$GITHUB_STEP_SUMMARY"
             echo "- **Triggered by:** ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
           fi
