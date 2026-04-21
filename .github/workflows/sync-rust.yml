@@ -153,28 +153,22 @@ jobs:
           CHUNK_COUNT="${{ steps.split.outputs.chunk_count }}"
           DATE=$(date -u +%Y-%m-%d)
 
-          # Write without heredoc indentation so JSON is not prefixed with spaces
-          cat > "$OUT_DIR/manifest.json" <<-MANIFEST
-          {
-            "version": "$VERSION",
-            "target": "$TARGET",
-            "date": "$DATE",
-            "sha256": "$SHA256",
-            "chunks": $CHUNK_COUNT,
-            "chunk_size": "90M",
-            "source": "https://static.rust-lang.org/dist/rust-${VERSION}-${TARGET}.tar.xz",
-            "packed_by": "kelexine/rust-toolchain GitHub Actions"
-          }
-          MANIFEST
-
-          # Strip the leading whitespace artifact from the tab-indented heredoc
           python3 -c "
           import json, sys
-          with open('$OUT_DIR/manifest.json') as f:
-              data = json.load(f)
+          data = {
+              'version':    '$VERSION',
+              'target':     '$TARGET',
+              'date':       '$DATE',
+              'sha256':     '$SHA256',
+              'chunks':     int('$CHUNK_COUNT'),
+              'chunk_size': '90M',
+              'source':     'https://static.rust-lang.org/dist/rust-${VERSION}-${TARGET}.tar.xz',
+              'packed_by':  'kelexine/rust-toolchain GitHub Actions',
+          }
           with open('$OUT_DIR/manifest.json', 'w') as f:
               json.dump(data, f, indent=2)
               f.write('\n')
+          print('Manifest written.')
           "
 
           # Standalone sha256 file (for verify.sh)
@@ -182,7 +176,7 @@ jobs:
 
           echo "Manifest written:"
           cat "$OUT_DIR/manifest.json"
-          echo "date=$DATE"       >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
 
       # ── Update stable symlink ──────────────────────────────────────────────────
       - name: Update stable symlink
