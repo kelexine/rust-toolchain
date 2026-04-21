@@ -43,11 +43,11 @@ rust-toolchain/
 ## Usage
 
 ```bash
-# One-liner install (no clone needed)
-curl -sSf https://raw.githubusercontent.com/kelexine/rust-toolchain/main/install.sh | sh
+# One-liner install (no clone needed) — requires bash, not sh
+curl -sSf https://raw.githubusercontent.com/kelexine/rust-toolchain/main/install.sh | bash
 
 # Pin a specific version
-VERSION=1.94.1 curl -sSf https://raw.githubusercontent.com/kelexine/rust-toolchain/main/install.sh | sh
+VERSION=1.94.1 curl -sSf https://raw.githubusercontent.com/kelexine/rust-toolchain/main/install.sh | bash
 
 # Or clone and run locally
 git clone --depth 1 https://github.com/kelexine/rust-toolchain
@@ -66,12 +66,20 @@ cd rust-toolchain
 ./uninstall.sh
 ```
 
-After install, add this to your shell (install.sh does it automatically for the session):
+After install, add this to your shell (install.sh does it automatically, including for **fish**):
 
 ```bash
+# bash / zsh / sh
 export CARGO_HOME="$HOME/.cargo-toolchain"
 export RUSTUP_HOME="$HOME/.rustup-toolchain"
 export PATH="$CARGO_HOME/bin:$PATH"
+```
+
+```fish
+# fish — written to ~/.config/fish/conf.d/rust-toolchain.fish automatically
+set -gx CARGO_HOME  ~/.cargo-toolchain
+set -gx RUSTUP_HOME ~/.rustup-toolchain
+fish_add_path ~/.cargo-toolchain/bin
 ```
 
 ## Adding a New Version (Maintainer Guide)
