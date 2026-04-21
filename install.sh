@@ -335,8 +335,9 @@ main() {
 
     echo ""
     echo -e "${BOLD}${GREEN}✓ Rust $VERSION installed successfully!${RESET}"
-    echo -e "  Run: ${CYAN}source \"\$HOME/.cargo-toolchain/env\"${RESET}"
+    echo -e "  Run: ${CYAN}. \"\$HOME/.cargo-toolchain/env\"${RESET}"
     echo -e "  Or open a new shell.\n"
+    echo -e "  Or export PATH="$HOME/.cargo-toolchain/bin:$PATH" && cargo --version"
 }
 
 main "$@"
