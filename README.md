@@ -13,9 +13,9 @@ toolchain archives so you can get latest Rust anywhere GitHub is reachable.
 
 <!-- stable-metadata-start -->
 - **Platform:** `x86_64-unknown-linux-gnu`
-- **Current stable:** `1.96.1`
-- **Release date:** `2026-07-01`
-- **SHA-256:** `d29ccb1559a177c4e72291f6e5f629de7fe8885e7521ca47802627544b121e95`
+- **Current stable:** `1.97.0`
+- **Release date:** `2026-07-12`
+- **SHA-256:** `1cf17e4905b841d4c8e3f76467ac148d55fb3f54bf213c86f0d287a36471d904`
 - **Chunks:** `3 x 90M`
 <!-- stable-metadata-end -->
 
@@ -30,13 +30,13 @@ rust-toolchain/
 ├── verify.sh               <- sha256 integrity check
 ├── pack.sh                 <- [local] package a toolchain for upload
 ├── toolchains/
-│   └── 1.96.1/
+│   └── 1.97.0/
 │       ├── manifest.json   <- metadata: version, date, sha256, chunk count
-│       ├── rust-1.96.1.tar.xz.sha256
-│       ├── rust-1.96.1.tar.xz.part000
-│       ├── rust-1.96.1.tar.xz.part001
+│       ├── rust-1.97.0.tar.xz.sha256
+│       ├── rust-1.97.0.tar.xz.part000
+│       ├── rust-1.97.0.tar.xz.part001
 │       └── ...             <- 90MB chunks (GitHub <100MB limit)
-└── stable -> toolchains/1.96.1   <- symlink to current stable
+└── stable -> toolchains/1.97.0   <- symlink to current stable
 ```
 <!-- repo-tree-end -->
 
