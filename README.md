@@ -47,7 +47,7 @@ rust-toolchain/
 curl -sSf https://raw.githubusercontent.com/kelexine/rust-toolchain/main/install.sh | bash
 
 # Pin a specific version
-VERSION=1.94.1 curl -sSf https://raw.githubusercontent.com/kelexine/rust-toolchain/main/install.sh | bash
+VERSION=1.99.1 curl -sSf https://raw.githubusercontent.com/kelexine/rust-toolchain/main/install.sh | bash
 
 # Or clone and run locally
 git clone --depth 1 https://github.com/kelexine/rust-toolchain
@@ -57,10 +57,10 @@ cd rust-toolchain
 ./install.sh
 
 # Or install a specific version
-./install.sh 1.94.1
+./install.sh 1.99.1
 
 # Verify integrity without installing
-./verify.sh 1.94.1
+./verify.sh 1.99.1
 
 # Uninstall
 ./uninstall.sh
@@ -87,15 +87,15 @@ fish_add_path ~/.cargo-toolchain/bin
 Run `pack.sh` locally with the desired version, then push the output:
 
 ```bash
-./pack.sh 1.95.0
-git add toolchains/1.95.0/
+./pack.sh 1.99.1
+git add toolchains/1.99.1/
 git commit -m "chore: add Rust 1.95.0 toolchain"
 git push
 # Update stable symlink
 git rm stable
-ln -s toolchains/1.95.0 stable
+ln -s toolchains/1.99.1 stable
 git add stable
-git commit -m "chore: bump stable -> 1.95.0"
+git commit -m "chore: bump stable -> 1.99.1"
 git push
 ```
 
